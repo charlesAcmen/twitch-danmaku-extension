@@ -57,6 +57,7 @@
       this.tracks = []; // dynamically grown
       this.queue = [];  // Message buffer queue
       this.messageCount = 0;
+      this.droppedCount = 0;
       this.isRunning = false;
       this._boundTick = this._tick.bind(this);
     }
@@ -121,6 +122,12 @@
 
       // Overflow protection: Drop oldest items to maintain real-time sync
       if (this.queue.length > this.config.maxQueueSize) {
+        const dropCount = this.queue.length - this.config.maxQueueSize;
+        const droppedItems = this.queue.slice(0, dropCount);
+        this.droppedCount += dropCount;
+        
+        console.warn(`[Twitch Danmaku] 🚦 [OVERFLOW] Queue exceeded ${this.config.maxQueueSize}. Dropping ${dropCount} oldest messages (Total dropped: ${this.droppedCount}).`, droppedItems);
+        
         this.queue = this.queue.slice(-this.config.maxQueueSize);
       }
 
