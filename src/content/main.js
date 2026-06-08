@@ -82,7 +82,7 @@
       if (!mount()) return;
     }
 
-    engine.add(data.message, data.color);
+    engine.add(data.message, data.color, data.emotes);
   });
 
   if (document.readyState === 'loading') {

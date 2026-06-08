@@ -1,7 +1,7 @@
 /**
  * irc-parser.js
- * 纯粹的 Twitch IRC 协议解析器
- * 负责将原始字符串转化为结构化消息对象。
+ * Pure Twitch IRC protocol parser.
+ * Converts raw strings to structured message objects.
  */
 (function (exports) {
   'use strict';
@@ -54,7 +54,41 @@
 
       const msgStart = rest.indexOf(' :');
       if (msgStart === -1) continue;
-      const message = rest.slice(msgStart + 2);
+      let message = rest.slice(msgStart + 2);
+
+      // Parse emotes
+      // Format: "emote_id:start-end,start-end/emote_id2:start-end"
+      let emotes = [];
+      if (tags['emotes']) {
+        const emoteParts = tags['emotes'].split('/');
+        for (const part of emoteParts) {
+          const [id, positions] = part.split(':');
+          if (!positions) continue;
+          const ranges = positions.split(',');
+          for (const range of ranges) {
+            const [start, end] = range.split('-');
+            emotes.push({
+              id: id,
+              start: parseInt(start, 10),
+              end: parseInt(end, 10)
+            });
+          }
+        }
+      }
+
+      // Handle CTCP ACTION (/me) messages
+      // They are formatted as \x01ACTION message\x01
+      let isAction = false;
+      if (message.charCodeAt(0) === 0x01 && message.startsWith('\x01ACTION ')) {
+        message = message.slice(8, -1); // Strip '\x01ACTION ' (8 chars) and trailing '\x01'
+        isAction = true;
+        
+        // Adjust emote indices because we stripped 8 characters from the start
+        for (const emote of emotes) {
+          emote.start -= 8;
+          emote.end -= 8;
+        }
+      }
 
       results.push({
         type: 'PRIVMSG',
@@ -63,6 +97,8 @@
         color: tags['color'] || '',
         channel: parts[1] || '',
         message: message,
+        isAction: isAction,
+        emotes: emotes,
         timestamp: Date.now()
       });
     }
