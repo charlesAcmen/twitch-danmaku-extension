@@ -100,7 +100,7 @@
       return bestTrack;
     }
 
-    add(text, color, emotes = []) {
+    add(username, text, color, emotes = []) {
       if (!this.config.enabled || !this.container || !this.container.parentElement) return;
 
       const containerRect = this.container.getBoundingClientRect();
@@ -111,7 +111,10 @@
 
       const item = document.createElement('span');
       item.className = 'danmaku-item';
-      item.innerHTML = createContentHTML(text, emotes);
+      
+      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">${escapeHTML(username)}: </span>`;
+      const msgHtml = `<span class="danmaku-msg">${createContentHTML(text, emotes)}</span>`;
+      item.innerHTML = authorHtml + msgHtml;
 
       const fontSize = this.config.fontSize;
       const trackTop = this.config.verticalStart * containerRect.height + trackIndex * (fontSize + 10);
@@ -124,14 +127,11 @@
       item.style.setProperty('--danmaku-duration', duration + 's');
       item.style.setProperty('--danmaku-opacity', this.config.opacity);
 
-      if (color) {
-        item.style.color = color;
-      }
-
       // Estimate width for collision detection
       // A character is roughly 0.6em, an emote image is roughly 1.5em
+      const authorLength = username.length + 2; // For ": "
       const textLength = text.length - emotes.reduce((acc, e) => acc + (e.end - e.start + 1), 0);
-      const estimatedWidth = (textLength * fontSize * 0.6) + (emotes.length * fontSize * 1.5);
+      const estimatedWidth = ((authorLength + textLength) * fontSize * 0.6) + (emotes.length * fontSize * 1.5);
       
       const passTime = (estimatedWidth / (containerRect.width + estimatedWidth)) * duration * 1000;
       this.tracks[trackIndex].lastEndTime = Date.now() + passTime + 200; // 200ms safety padding
