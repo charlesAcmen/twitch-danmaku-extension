@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Twitch Danmaku",
+  "version": "1.0.0",
+  "description": "将 Twitch 直播聊天以 B 站弹幕形式 overlay 在视频播放器上",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.twitch.tv/*"],
+      "js": [
+        "src/interceptor/ws-hook.js",
+        "src/interceptor/irc-parser.js",
+        "src/interceptor/main.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.twitch.tv/*"],
+      "js": [
+        "src/content/config.js",
+        "src/content/danmaku-engine.js",
+        "src/content/ui.js",
+        "src/content/twitch-player.js",
+        "src/content/main.js"
+      ],
+      "css": ["css/danmaku.css"],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    }
+  ],
+  "icons": {}
+}
