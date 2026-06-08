@@ -1,6 +1,6 @@
 /**
  * danmaku-engine.js
- * Pure danmaku rendering engine.
+ * Pure danmaku rendering engine with RequestAnimationFrame Buffer Queue.
  * Maintains tracks, calculates collisions, and renders DOM elements.
  * Unaware of the host environment (Twitch specific DOM).
  */
@@ -52,9 +52,13 @@
   class DanmakuEngine {
     constructor(container, config) {
       this.container = container;
-      this.config = config;
+      // Default maxQueueSize to 100 if not provided
+      this.config = { maxQueueSize: 100, ...config };
       this.tracks = []; // dynamically grown
+      this.queue = [];  // Message buffer queue
       this.messageCount = 0;
+      this.isRunning = false;
+      this._boundTick = this._tick.bind(this);
     }
 
     updateConfig(newConfig) {
@@ -64,6 +68,23 @@
     clear() {
       this.container.innerHTML = '';
       this.tracks = [];
+      this.queue = [];
+    }
+
+    _start() {
+      if (this.isRunning) return;
+      this.isRunning = true;
+      requestAnimationFrame(this._boundTick);
+    }
+
+    _stop() {
+      this.isRunning = false;
+    }
+
+    _tick() {
+      if (!this.isRunning) return;
+      this._processQueue();
+      requestAnimationFrame(this._boundTick);
     }
 
     _pickTrack(effectiveMaxTracks) {
@@ -82,32 +103,68 @@
         }
       }
 
-      if (bestFreeTime < 300) {
-        // All tracks are busy, pick a random one
-        return Math.floor(Math.random() * effectiveMaxTracks);
+      // STRICT MODE: Only return a track if it's genuinely free.
+      // (freeTime > 0 means the tail of the previous danmaku has passed the padding threshold)
+      if (bestFreeTime > 0) {
+        return bestTrack;
       }
-      return bestTrack;
+      
+      // If no tracks are free, return -1. We will NOT force overlap anymore.
+      return -1;
     }
 
+    // This is now purely a data ingester. No DOM work here.
     add(username, text, color, emotes = []) {
-      if (!this.config.enabled || !this.container || !this.container.parentElement) return;
+      if (!this.config.enabled) return;
+
+      this.queue.push({ username, text, color, emotes });
+
+      // Overflow protection: Drop oldest items to maintain real-time sync
+      if (this.queue.length > this.config.maxQueueSize) {
+        this.queue = this.queue.slice(-this.config.maxQueueSize);
+      }
+
+      // Ensure the ticker is running
+      if (!this.isRunning) {
+        this._start();
+      }
+    }
+
+    _processQueue() {
+      if (this.queue.length === 0) return;
+      if (!this.container || !this.container.parentElement) return;
 
       const containerRect = this.container.getBoundingClientRect();
       if (containerRect.width === 0 || containerRect.height === 0) return;
 
       // 1. Adaptive Font Size
-      // Scale based on a standard 720p player height to handle zoom levels correctly
       const scale = containerRect.height / 720;
-      const actualFontSize = Math.max(12, Math.floor(this.config.fontSize * scale)); // Ensure min 12px
+      const actualFontSize = Math.max(12, Math.floor(this.config.fontSize * scale));
       const trackHeight = actualFontSize + 10;
 
-      // 2. Prevent tracks from overflowing the video bottom
+      // 2. Available Tracks
       const availableSpace = containerRect.height * (1 - this.config.verticalStart);
       const availableTracks = Math.floor(availableSpace / trackHeight);
       const effectiveMaxTracks = Math.max(1, Math.min(this.config.maxTracks, availableTracks));
 
-      const trackIndex = this._pickTrack(effectiveMaxTracks);
-      if (trackIndex === -1) return;
+      // Try to dispatch as many queued items as possible in this frame
+      while (this.queue.length > 0) {
+        const trackIndex = this._pickTrack(effectiveMaxTracks);
+        
+        // If NO track is available, we break the loop immediately.
+        // The remaining items stay in the queue and will be checked on the next frame.
+        if (trackIndex === -1) {
+          break;
+        }
+
+        // We have a free track! Pop the oldest item from the front of the queue
+        const itemData = this.queue.shift();
+        this._renderItem(itemData, trackIndex, containerRect, actualFontSize, trackHeight);
+      }
+    }
+
+    _renderItem(data, trackIndex, containerRect, actualFontSize, trackHeight) {
+      const { username, text, color, emotes } = data;
 
       const item = document.createElement('span');
       item.className = 'danmaku-item';
@@ -120,16 +177,14 @@
       item.style.top = trackTop + 'px';
       item.style.fontSize = actualFontSize + 'px';
       
-      // 3. Exact Width Calculation (Industry Standard)
-      // Hide before appending to prevent unstyled flash and layout shift
+      // 3. Exact Width Calculation
       item.style.visibility = 'hidden';
       this.container.appendChild(item);
       
       const W = item.offsetWidth;
       const L = containerRect.width;
       
-      // 4. Constant Velocity Algorithm to prevent chasing collisions
-      // V is pixels per second
+      // 4. Constant Velocity Algorithm
       const V = L / this.config.speed;
       const totalDuration = (L + W) / V;
       const tailClearTime = W / V;
@@ -139,17 +194,15 @@
       item.style.setProperty('--danmaku-duration', totalDuration + 's');
       item.style.setProperty('--danmaku-opacity', this.config.opacity);
       
-      // Reveal the item
-      item.style.visibility = '';
+      item.style.visibility = ''; // Reveal
       
-      // 5. Update track occupation time with safety padding (0.3s gap)
+      // 5. Track Lock with safety padding
       this.tracks[trackIndex].lastEndTime = Date.now() + (tailClearTime + 0.3) * 1000;
       this.tracks[trackIndex].lastStartTime = Date.now();
 
       this.messageCount++;
 
       item.addEventListener('animationend', () => item.remove());
-      // Fallback cleanup in case animationend doesn't fire
       setTimeout(() => { if (item.parentElement) item.remove(); }, (totalDuration + 1) * 1000);
     }
   }
