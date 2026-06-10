@@ -52,8 +52,9 @@
   class DanmakuEngine {
     constructor(container, config) {
       this.container = container;
-      // Default maxQueueSize to 100 if not provided
-      this.config = { maxQueueSize: 100, ...config };
+      // Relax queue size to 500. This handles high-capacity bursts (max speed, min font) 
+      // without dropping, and limits max delay to ~10-15s under typical settings.
+      this.config = { maxQueueSize: 500, ...config };
       this.tracks = []; // dynamically grown
       this.queue = [];  // Message buffer queue
       this.messageCount = 0;
