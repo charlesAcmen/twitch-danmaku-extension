@@ -56,7 +56,9 @@
       // without dropping, and limits max delay to ~10-15s under typical settings.
       this.config = { maxQueueSize: 500, ...config };
       this.tracks = []; // dynamically grown
-      this.queue = [];  // Message buffer queue
+      this.fixedSlots = []; // dynamically grown for fixed danmaku
+      this.scrollQueue = [];  // Scrolling message buffer queue
+      this.fixedQueue = [];   // Fixed message buffer queue
       this.messageCount = 0;
       this.isRunning = false;
       this._boundTick = this._tick.bind(this);
@@ -78,7 +80,9 @@
     clear() {
       this.container.innerHTML = '';
       this.tracks = [];
-      this.queue = [];
+      this.fixedSlots = [];
+      this.scrollQueue = [];
+      this.fixedQueue = [];
     }
 
     _start() {
@@ -123,27 +127,43 @@
       }
 
       // STRICT MODE: Only return a track if it's genuinely free.
-      // (freeTime > 0 means the tail of the previous danmaku has passed the padding threshold)
       if (bestFreeTime > 0) {
         return bestTrack;
       }
-      
-      // If no tracks are free, return -1. We will NOT force overlap anymore.
+      return -1;
+    }
+
+    _pickFixedSlot(maxSlots) {
+      const now = Date.now();
+      for (let i = 0; i < maxSlots; i++) {
+        if (!this.fixedSlots[i]) this.fixedSlots[i] = { lastEndTime: 0 };
+        if (now > this.fixedSlots[i].lastEndTime) {
+          return i;
+        }
+      }
       return -1;
     }
 
     // This is now purely a data ingester. No DOM work here.
-    add(username, text, color, emotes = []) {
+    add(username, text, color, emotes = [], role = 'normal') {
       if (!this.config.enabled) return;
 
       this.stats.received++;
-      this.queue.push({ username, text, color, emotes });
+      const type = (role === 'broadcaster' || role === 'moderator') ? 'fixed-top' : 'scroll';
+      const queue = type === 'fixed-top' ? this.fixedQueue : this.scrollQueue;
+
+      queue.push({ username, text, color, emotes, type, timestamp: Date.now() });
 
       // Overflow protection: Drop oldest items to maintain real-time sync
-      if (this.queue.length > this.config.maxQueueSize) {
-        const dropCount = this.queue.length - this.config.maxQueueSize;
-        const droppedItems = this.queue.slice(0, dropCount);
-        this.queue = this.queue.slice(-this.config.maxQueueSize);
+      if (queue.length > this.config.maxQueueSize) {
+        const dropCount = queue.length - this.config.maxQueueSize;
+        const droppedItems = queue.slice(0, dropCount);
+        
+        if (type === 'fixed-top') {
+          this.fixedQueue = queue.slice(-this.config.maxQueueSize);
+        } else {
+          this.scrollQueue = queue.slice(-this.config.maxQueueSize);
+        }
         
         this.stats.dropped += dropCount;
         this.droppedSinceLastLog.push(...droppedItems);
@@ -156,7 +176,7 @@
     }
 
     _processQueue() {
-      if (this.queue.length === 0) return;
+      if (this.scrollQueue.length === 0 && this.fixedQueue.length === 0) return;
       if (!this.container || !this.container.parentElement) return;
 
       const containerRect = this.container.getBoundingClientRect();
@@ -173,20 +193,51 @@
       const availableSpace = (containerRect.height * (this.config.displayAreaPercent / 100)) - topPadding;
       const effectiveMaxTracks = Math.max(1, Math.floor(availableSpace / trackHeight));
 
-      // Try to dispatch as many queued items as possible in this frame
-      while (this.queue.length > 0) {
-        const trackIndex = this._pickTrack(effectiveMaxTracks);
-        
-        // If NO track is available, we break the loop immediately.
-        // The remaining items stay in the queue and will be checked on the next frame.
-        if (trackIndex === -1) {
-          break;
-        }
+      // 3. Process fixed queue
+      while (this.fixedQueue.length > 0) {
+        const slotIndex = this._pickFixedSlot(effectiveMaxTracks);
+        if (slotIndex === -1) break;
+        const itemData = this.fixedQueue.shift();
+        this._renderFixedItem(itemData, slotIndex, containerRect, actualFontSize);
+      }
 
-        // We have a free track! Pop the oldest item from the front of the queue
-        const itemData = this.queue.shift();
+      // 4. Process scroll queue
+      while (this.scrollQueue.length > 0) {
+        const trackIndex = this._pickTrack(effectiveMaxTracks);
+        if (trackIndex === -1) break;
+        const itemData = this.scrollQueue.shift();
         this._renderItem(itemData, trackIndex, containerRect, actualFontSize, trackHeight);
       }
+    }
+
+    _renderFixedItem(data, slotIndex, containerRect, actualFontSize) {
+      const { username, text, color, emotes } = data;
+
+      const item = document.createElement('span');
+      item.className = 'danmaku-item fixed-top';
+      
+      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">${escapeHTML(username)}: </span>`;
+      const msgHtml = `<span class="danmaku-msg">${createContentHTML(text, emotes)}</span>`;
+      item.innerHTML = authorHtml + msgHtml;
+
+      const topPadding = containerRect.height * this.config.verticalStart;
+      const slotHeight = actualFontSize + 10;
+      const trackTop = topPadding + slotIndex * slotHeight;
+      
+      item.style.top = trackTop + 'px';
+      item.style.fontSize = actualFontSize + 'px';
+      item.style.setProperty('--danmaku-opacity', this.config.opacity);
+      
+      this.container.appendChild(item);
+      
+      const stayDuration = 5; // 5 seconds
+      this.fixedSlots[slotIndex].lastEndTime = Date.now() + (stayDuration * 1000);
+
+      this.messageCount++;
+      this.stats.rendered++;
+
+      item.addEventListener('animationend', () => item.remove());
+      setTimeout(() => { if (item.parentElement) item.remove(); }, (stayDuration + 1) * 1000);
     }
 
     _renderItem(data, trackIndex, containerRect, actualFontSize, trackHeight) {
@@ -203,14 +254,12 @@
       item.style.top = trackTop + 'px';
       item.style.fontSize = actualFontSize + 'px';
       
-      // 3. Exact Width Calculation
       item.style.visibility = 'hidden';
       this.container.appendChild(item);
       
       const W = item.offsetWidth;
       const L = containerRect.width;
       
-      // 4. Constant Velocity Algorithm
       const V = L / this.config.speed;
       const totalDuration = (L + W) / V;
       const tailClearTime = W / V;
@@ -222,7 +271,6 @@
       
       item.style.visibility = ''; // Reveal
       
-      // 5. Track Lock with safety padding
       this.tracks[trackIndex].lastEndTime = Date.now() + (tailClearTime + 0.3) * 1000;
       this.tracks[trackIndex].lastStartTime = Date.now();
 

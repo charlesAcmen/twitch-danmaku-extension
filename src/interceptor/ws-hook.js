@@ -63,9 +63,7 @@
       return Object.getOwnPropertyDescriptor(target, prop);
     }
   });
-  window.WebSocket.prototype = OriginalWebSocket.prototype;
-  window.WebSocket.prototype.constructor = window.WebSocket;
-
+  // No need to manually assign prototype, Proxy handles it.
   // Hook 2: onmessage setter
   const origOnmessageDesc = Object.getOwnPropertyDescriptor(OriginalWebSocket.prototype, 'onmessage');
   if (origOnmessageDesc) {

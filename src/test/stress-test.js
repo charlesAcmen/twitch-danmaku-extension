@@ -57,6 +57,30 @@
     },
 
     /**
+     * Fires a burst of FIXED danmaku messages.
+     * Useful for testing the fixed slot stacking and rendering.
+     * 
+     * @param {number} count - Number of messages to fire (default: 10)
+     */
+    fireFixedBurst(count = 10) {
+      console.log(`[StressTest] Firing instant burst of ${count} FIXED messages...`);
+      for (let i = 0; i < count; i++) {
+        const payload = {
+          type: 'PRIVMSG',
+          username: 'BroadcasterBot',
+          color: '#FF4500',
+          message: 'This is a FIXED message ' + i,
+          emotes: [],
+          role: 'broadcaster', // This triggers the fixed-top type
+          timestamp: Date.now()
+        };
+        const event = new CustomEvent('__twitch_danmaku_msg__', { detail: payload });
+        window.dispatchEvent(event);
+      }
+      console.log(`[StressTest] Fixed Burst complete.`);
+    },
+
+    /**
      * Starts a continuous flood of messages over time.
      * Useful for testing RAF stability and track allocation under sustained load.
      * 
@@ -101,6 +125,7 @@
   console.log('[StressTest] Utility loaded successfully.');
   console.log('[StressTest] Commands available:');
   console.log('  - window.DanmakuStressTest.fireBurst(500)');
+  console.log('  - window.DanmakuStressTest.fireFixedBurst(10)');
   console.log('  - window.DanmakuStressTest.startFlood(100)');
   console.log('  - window.DanmakuStressTest.stopFlood()');
 

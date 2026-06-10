@@ -154,9 +154,24 @@
   margin: 0 2px;
 }
 
+
 .danmaku-author {
   font-weight: 800;
 }
 .danmaku-msg {
   color: #ffffff;
+}
+
+/* 固定顶部弹幕 */
+.danmaku-item.fixed-top {
+  left: 50%;
+  transform: translateX(-50%);
+  animation: danmaku-fade-in-out 5s forwards;
+}
+
+@keyframes danmaku-fade-in-out {
+  0% { opacity: 0; transform: translate(-50%, -10px); }
+  5% { opacity: var(--danmaku-opacity, 0.85); transform: translate(-50%, 0); }
+  95% { opacity: var(--danmaku-opacity, 0.85); transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -10px); }
 }

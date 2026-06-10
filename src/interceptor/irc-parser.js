@@ -90,6 +90,19 @@
         }
       }
 
+      let role = 'normal';
+      if (tags['badges']) {
+        if (tags['badges'].includes('broadcaster/')) {
+          role = 'broadcaster';
+        } else if (tags['badges'].includes('moderator/')) {
+          role = 'moderator';
+        } else if (tags['badges'].includes('vip/')) {
+          role = 'vip';
+        } else if (tags['badges'].includes('subscriber/')) {
+          role = 'subscriber';
+        }
+      }
+
       results.push({
         type: 'PRIVMSG',
         tags: tags,
@@ -99,6 +112,7 @@
         message: message,
         isAction: isAction,
         emotes: emotes,
+        role: role,
         timestamp: Date.now()
       });
     }
