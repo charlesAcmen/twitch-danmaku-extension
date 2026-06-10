@@ -57,9 +57,17 @@
       this.tracks = []; // dynamically grown
       this.queue = [];  // Message buffer queue
       this.messageCount = 0;
-      this.droppedCount = 0;
       this.isRunning = false;
       this._boundTick = this._tick.bind(this);
+
+      // Telemetry for dropped messages
+      this.stats = {
+        received: 0,
+        rendered: 0,
+        dropped: 0
+      };
+      this.droppedSinceLastLog = [];
+      this.lastLogTime = Date.now();
     }
 
     updateConfig(newConfig) {
@@ -85,6 +93,15 @@
     _tick() {
       if (!this.isRunning) return;
       this._processQueue();
+
+      // Log dropped messages periodically to prevent console lag
+      const now = Date.now();
+      if (now - this.lastLogTime > 2000 && this.droppedSinceLastLog.length > 0) {
+        console.warn(`[Twitch Danmaku] Queue max capacity (${this.config.maxQueueSize}) reached. Dropped ${this.droppedSinceLastLog.length} oldest messages in the last 2s to maintain real-time sync. Total dropped: ${this.stats.dropped}`, this.droppedSinceLastLog);
+        this.droppedSinceLastLog = [];
+        this.lastLogTime = now;
+      }
+
       requestAnimationFrame(this._boundTick);
     }
 
@@ -118,17 +135,17 @@
     add(username, text, color, emotes = []) {
       if (!this.config.enabled) return;
 
+      this.stats.received++;
       this.queue.push({ username, text, color, emotes });
 
       // Overflow protection: Drop oldest items to maintain real-time sync
       if (this.queue.length > this.config.maxQueueSize) {
         const dropCount = this.queue.length - this.config.maxQueueSize;
         const droppedItems = this.queue.slice(0, dropCount);
-        this.droppedCount += dropCount;
-        
-        console.warn(`[Twitch Danmaku] 🚦 [OVERFLOW] Queue exceeded ${this.config.maxQueueSize}. Dropping ${dropCount} oldest messages (Total dropped: ${this.droppedCount}).`, droppedItems);
-        
         this.queue = this.queue.slice(-this.config.maxQueueSize);
+        
+        this.stats.dropped += dropCount;
+        this.droppedSinceLastLog.push(...droppedItems);
       }
 
       // Ensure the ticker is running
@@ -208,6 +225,7 @@
       this.tracks[trackIndex].lastStartTime = Date.now();
 
       this.messageCount++;
+      this.stats.rendered++;
 
       item.addEventListener('animationend', () => item.remove());
       setTimeout(() => { if (item.parentElement) item.remove(); }, (totalDuration + 1) * 1000);
