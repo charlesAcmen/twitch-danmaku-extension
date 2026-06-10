@@ -110,27 +110,60 @@
       requestAnimationFrame(this._boundTick);
     }
 
-    _pickTrack(effectiveMaxTracks) {
+    _ensureTrack(trackIndex) {
+      if (!this.tracks[trackIndex]) {
+        this.tracks[trackIndex] = { activeItems: [], lastStartTime: 0 };
+      }
+      return this.tracks[trackIndex];
+    }
+
+    _pruneTrack(track, now) {
+      track.activeItems = track.activeItems.filter(item => item.endTime > now);
+    }
+
+    _isTrackSafe(track, speedPxPerSecond, now) {
+      const minGapPx = Math.max(16, speedPxPerSecond * 0.25);
+
+      return track.activeItems.every(item => {
+        const elapsedSeconds = Math.max(0, (now - item.startTime) / 1000);
+        const remainingSeconds = Math.max(0, item.duration - elapsedSeconds);
+        const currentGapPx = item.speedPxPerSecond * elapsedSeconds - item.width;
+
+        if (currentGapPx < minGapPx) {
+          return false;
+        }
+
+        if (speedPxPerSecond <= item.speedPxPerSecond) {
+          return true;
+        }
+
+        const closestGapPx = currentGapPx - (speedPxPerSecond - item.speedPxPerSecond) * remainingSeconds;
+        return closestGapPx >= minGapPx;
+      });
+    }
+
+    _pickTrack(effectiveMaxTracks, speedPxPerSecond) {
       const now = Date.now();
-      let bestTrack = -1;
-      let bestFreeTime = -1;
+      const candidates = [];
 
       for (let i = 0; i < effectiveMaxTracks; i++) {
-        if (!this.tracks[i]) this.tracks[i] = { lastEndTime: 0, lastStartTime: 0 };
-        
-        const track = this.tracks[i];
-        const freeTime = now - track.lastEndTime;
-        if (freeTime > bestFreeTime) {
-          bestFreeTime = freeTime;
-          bestTrack = i;
+        const track = this._ensureTrack(i);
+        this._pruneTrack(track, now);
+
+        if (this._isTrackSafe(track, speedPxPerSecond, now)) {
+          const recentlyUsedPenalty = Math.max(0, 1500 - (now - track.lastStartTime)) / 1500;
+          candidates.push({
+            index: i,
+            score: track.activeItems.length + recentlyUsedPenalty
+          });
         }
       }
 
-      // STRICT MODE: Only return a track if it's genuinely free.
-      if (bestFreeTime > 0) {
-        return bestTrack;
-      }
-      return -1;
+      if (candidates.length === 0) return -1;
+
+      const bestScore = Math.min(...candidates.map(candidate => candidate.score));
+      const relaxedCandidates = candidates.filter(candidate => candidate.score <= bestScore + 1);
+      return relaxedCandidates[Math.floor(Math.random() * relaxedCandidates.length)].index;
     }
 
     _pickFixedSlot(maxSlots) {
@@ -203,11 +236,36 @@
 
       // 4. Process scroll queue
       while (this.scrollQueue.length > 0) {
-        const trackIndex = this._pickTrack(effectiveMaxTracks);
-        if (trackIndex === -1) break;
-        const itemData = this.scrollQueue.shift();
-        this._renderItem(itemData, trackIndex, containerRect, actualFontSize, trackHeight);
+        const itemData = this.scrollQueue[0];
+        const item = this._createItemElement(itemData, 'danmaku-item', actualFontSize);
+        this.container.appendChild(item);
+
+        const messageWidth = item.offsetWidth;
+        const speedPxPerSecond = containerRect.width / this.config.speed;
+        const trackIndex = this._pickTrack(effectiveMaxTracks, speedPxPerSecond);
+        if (trackIndex === -1) {
+          item.remove();
+          break;
+        }
+
+        this.scrollQueue.shift();
+        this._renderItem(trackIndex, containerRect, trackHeight, item, messageWidth, speedPxPerSecond);
       }
+    }
+
+    _createItemElement(data, className, fontSize) {
+      const { username, text, color, emotes } = data;
+
+      const item = document.createElement('span');
+      item.className = className;
+
+      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">` + escapeHTML(username) + `: </span>`;
+      const msgHtml = `<span class="danmaku-msg">${createContentHTML(text, emotes)}</span>`;
+      item.innerHTML = authorHtml + msgHtml;
+      item.style.visibility = 'hidden';
+      this._applyItemStyles(item, fontSize);
+
+      return item;
     }
 
     _applyItemStyles(item, fontSize) {
@@ -221,14 +279,7 @@
     }
 
     _renderFixedItem(data, slotIndex, containerRect, actualFontSize) {
-      const { username, text, color, emotes } = data;
-
-      const item = document.createElement('span');
-      item.className = 'danmaku-item fixed-top';
-      
-      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">` + escapeHTML(username) + `: </span>`;
-      const msgHtml = `<span class="danmaku-msg">${createContentHTML(text, emotes)}</span>`;
-      item.innerHTML = authorHtml + msgHtml;
+      const item = this._createItemElement(data, 'danmaku-item fixed-top', actualFontSize);
 
       const topPadding = containerRect.height * this.config.verticalStart;
       const slotHeight = actualFontSize + 10;
@@ -236,7 +287,7 @@
       
       item.style.top = trackTop + 'px';
       item.style.setProperty('--danmaku-opacity', this.config.opacity);
-      this._applyItemStyles(item, actualFontSize);
+      item.style.visibility = '';
       
       this.container.appendChild(item);
       
@@ -250,39 +301,30 @@
       setTimeout(() => { if (item.parentElement) item.remove(); }, (stayDuration + 1) * 1000);
     }
 
-    _renderItem(data, trackIndex, containerRect, actualFontSize, trackHeight) {
-      const { username, text, color, emotes } = data;
-
-      const item = document.createElement('span');
-      item.className = 'danmaku-item';
-      
-      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">` + escapeHTML(username) + `: </span>`;
-      const msgHtml = `<span class="danmaku-msg">${createContentHTML(text, emotes)}</span>`;
-      item.innerHTML = authorHtml + msgHtml;
-
+    _renderItem(trackIndex, containerRect, trackHeight, item, messageWidth, speedPxPerSecond) {
       const trackTop = this.config.verticalStart * containerRect.height + trackIndex * trackHeight;
       item.style.top = trackTop + 'px';
+
+      const containerWidth = containerRect.width;
+      const totalDuration = (containerWidth + messageWidth) / speedPxPerSecond;
       
-      item.style.visibility = 'hidden';
-      this._applyItemStyles(item, actualFontSize);
-      this.container.appendChild(item);
-      
-      const W = item.offsetWidth;
-      const L = containerRect.width;
-      
-      const V = L / this.config.speed;
-      const totalDuration = (L + W) / V;
-      const tailClearTime = W / V;
-      
-      item.style.setProperty('--danmaku-start-x', L + 'px');
-      item.style.setProperty('--danmaku-end-x', `-${W}px`);
+      item.style.setProperty('--danmaku-start-x', containerWidth + 'px');
+      item.style.setProperty('--danmaku-end-x', `-${messageWidth}px`);
       item.style.setProperty('--danmaku-duration', totalDuration + 's');
       item.style.setProperty('--danmaku-opacity', this.config.opacity);
       
       item.style.visibility = ''; // Reveal
-      
-      this.tracks[trackIndex].lastEndTime = Date.now() + (tailClearTime + 0.3) * 1000;
-      this.tracks[trackIndex].lastStartTime = Date.now();
+
+      const now = Date.now();
+      const track = this._ensureTrack(trackIndex);
+      track.lastStartTime = now;
+      track.activeItems.push({
+        startTime: now,
+        endTime: now + totalDuration * 1000,
+        width: messageWidth,
+        speedPxPerSecond,
+        duration: totalDuration
+      });
 
       this.messageCount++;
       this.stats.rendered++;
