@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const { getConfig } = window.__TD_CONFIG__;
+  const { getConfig, resetConfig } = window.__TD_CONFIG__;
   const { DanmakuEngine } = window.__TD_ENGINE__;
   const { DanmakuUI } = window.__TD_UI__;
   const { findPlayer } = window.__TD_PLAYER__;
@@ -62,6 +62,18 @@
           container.style.display = 'none';
           engine.clear();
         }
+      },
+      () => {
+        if (!resetConfig) return null;
+        config = resetConfig();
+        engine.updateConfig(config);
+        if (config.enabled) {
+          container.style.display = '';
+        } else {
+          container.style.display = 'none';
+        }
+        engine.clear();
+        return config;
       }
     );
     

@@ -19,6 +19,8 @@
 
   const STORAGE_KEY = 'twitch_danmaku_config';
 
+  exports.getDefaultConfig = () => ({ ...DEFAULT_CONFIG });
+
   exports.getConfig = () => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -39,6 +41,15 @@
     } catch (e) {
       console.warn('[Twitch Danmaku] Failed to save config to localStorage', e);
     }
+  };
+
+  exports.resetConfig = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CONFIG));
+    } catch (e) {
+      console.warn('[Twitch Danmaku] Failed to reset config in localStorage', e);
+    }
+    return { ...DEFAULT_CONFIG };
   };
 
 })(window.__TD_CONFIG__ = window.__TD_CONFIG__ || {});

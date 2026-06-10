@@ -77,10 +77,11 @@
   }
 
   class DanmakuUI {
-    constructor(config, onConfigChange, onToggle) {
+    constructor(config, onConfigChange, onToggle, onReset) {
       this.config = config;
       this.onConfigChange = onConfigChange;
       this.onToggle = onToggle;
+      this.onReset = onReset;
 
       this.toggleBtn = null;
       this.settingsPanel = null;
@@ -246,10 +247,12 @@
       const resetBtn = this.settingsPanel.querySelector('#danmaku-reset-btn');
       if (resetBtn) {
         resetBtn.addEventListener('click', () => {
-          if (confirm('确定要恢复弹幕的默认设置吗？')) {
-            localStorage.removeItem('twitch_danmaku_config');
-            location.reload();
-          }
+          if (!this.onReset) return;
+          const defaults = this.onReset();
+          if (!defaults) return;
+          this.config = { ...defaults };
+          this.toggleBtn.classList.toggle('danmaku-off', !this.config.enabled);
+          this._renderPanelContent();
         });
       }
     }
