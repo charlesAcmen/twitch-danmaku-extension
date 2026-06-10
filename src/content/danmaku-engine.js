@@ -83,6 +83,7 @@
       this.fixedSlots = [];
       this.scrollQueue = [];
       this.fixedQueue = [];
+      this._stop();
     }
 
     _start() {
@@ -105,6 +106,11 @@
         console.warn(`[Twitch Danmaku] Queue max capacity (${this.config.maxQueueSize}) reached. Dropped ${this.droppedSinceLastLog.length} oldest messages in the last 2s to maintain real-time sync. Total dropped: ${this.stats.dropped}`, this.droppedSinceLastLog);
         this.droppedSinceLastLog = [];
         this.lastLogTime = now;
+      }
+
+      if (this.scrollQueue.length === 0 && this.fixedQueue.length === 0) {
+        this._stop();
+        return;
       }
 
       requestAnimationFrame(this._boundTick);
