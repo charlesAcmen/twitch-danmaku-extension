@@ -14,7 +14,28 @@
     verticalStart: 0.05
   };
 
-  exports.getConfig = () => ({ ...DEFAULT_CONFIG });
-  // 这里未来可以加入 localStorage 的读写逻辑来持久化用户配置
+  const STORAGE_KEY = 'twitch_danmaku_config';
+
+  exports.getConfig = () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        return { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
+      }
+    } catch (e) {
+      console.warn('[Twitch Danmaku] Failed to read config from localStorage', e);
+    }
+    return { ...DEFAULT_CONFIG };
+  };
+
+  exports.saveConfig = (newConfig) => {
+    try {
+      const current = exports.getConfig();
+      const updated = { ...current, ...newConfig };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.warn('[Twitch Danmaku] Failed to save config to localStorage', e);
+    }
+  };
 
 })(window.__TD_CONFIG__ = window.__TD_CONFIG__ || {});

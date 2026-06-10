@@ -45,10 +45,16 @@
       config, 
       (changes) => {
         config = { ...config, ...changes };
+        if (window.__TD_CONFIG__ && window.__TD_CONFIG__.saveConfig) {
+          window.__TD_CONFIG__.saveConfig(config);
+        }
         engine.updateConfig(config);
       },
       (enabled) => {
         config.enabled = enabled;
+        if (window.__TD_CONFIG__ && window.__TD_CONFIG__.saveConfig) {
+          window.__TD_CONFIG__.saveConfig(config);
+        }
         engine.updateConfig({ enabled });
         if (enabled) {
           container.style.display = '';
