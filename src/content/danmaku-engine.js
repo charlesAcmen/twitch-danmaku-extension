@@ -163,13 +163,14 @@
 
       // 1. Adaptive Font Size
       const scale = containerRect.height / 720;
-      const actualFontSize = Math.max(12, Math.floor(this.config.fontSize * scale));
+      const baseFontSize = 24 * (this.config.fontSizePercent / 100);
+      const actualFontSize = Math.max(12, Math.floor(baseFontSize * scale));
       const trackHeight = actualFontSize + 10;
 
       // 2. Available Tracks
-      const availableSpace = containerRect.height * (1 - this.config.verticalStart);
-      const availableTracks = Math.floor(availableSpace / trackHeight);
-      const effectiveMaxTracks = Math.max(1, Math.min(this.config.maxTracks, availableTracks));
+      const topPadding = containerRect.height * this.config.verticalStart;
+      const availableSpace = (containerRect.height * (this.config.displayAreaPercent / 100)) - topPadding;
+      const effectiveMaxTracks = Math.max(1, Math.floor(availableSpace / trackHeight));
 
       // Try to dispatch as many queued items as possible in this frame
       while (this.queue.length > 0) {

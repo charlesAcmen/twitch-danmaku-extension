@@ -39,24 +39,24 @@
       this.settingsPanel.innerHTML = `
         <h3>💬 弹幕设置</h3>
         <div class="danmaku-setting-row">
+          <label>显示区域</label>
+          <input type="range" min="0" max="4" step="1" value="${[10, 25, 50, 75, 100].indexOf(this.config.displayAreaPercent)}" data-setting="displayAreaPercent">
+          <span class="setting-value">${this.config.displayAreaPercent}%</span>
+        </div>
+        <div class="danmaku-setting-row">
           <label>不透明度</label>
           <input type="range" min="10" max="100" value="${this.config.opacity * 100}" data-setting="opacity">
           <span class="setting-value">${Math.round(this.config.opacity * 100)}%</span>
         </div>
         <div class="danmaku-setting-row">
-          <label>字体大小</label>
-          <input type="range" min="14" max="40" value="${this.config.fontSize}" data-setting="fontSize">
-          <span class="setting-value">${this.config.fontSize}px</span>
+          <label>弹幕字号</label>
+          <input type="range" min="50" max="170" step="1" value="${this.config.fontSizePercent}" data-setting="fontSizePercent">
+          <span class="setting-value">${this.config.fontSizePercent}%</span>
         </div>
         <div class="danmaku-setting-row">
-          <label>速度</label>
+          <label>弹幕速度</label>
           <input type="range" min="3" max="15" value="${this.config.speed}" data-setting="speed">
           <span class="setting-value">${this.config.speed}s</span>
-        </div>
-        <div class="danmaku-setting-row">
-          <label>轨道数</label>
-          <input type="range" min="5" max="30" value="${this.config.maxTracks}" data-setting="maxTracks">
-          <span class="setting-value">${this.config.maxTracks}</span>
         </div>
       `;
 
@@ -69,22 +69,22 @@
 
           const changes = {};
           switch (setting) {
+            case 'displayAreaPercent':
+              const areas = [10, 25, 50, 75, 100];
+              changes.displayAreaPercent = areas[value];
+              valueDisplay.textContent = areas[value] + '%';
+              break;
             case 'opacity':
               changes.opacity = value / 100;
               valueDisplay.textContent = value + '%';
               break;
-            case 'fontSize':
-              changes.fontSize = value;
-              changes.trackHeight = value + 10;
-              valueDisplay.textContent = value + 'px';
+            case 'fontSizePercent':
+              changes.fontSizePercent = value;
+              valueDisplay.textContent = value + '%';
               break;
             case 'speed':
               changes.speed = value;
               valueDisplay.textContent = value + 's';
-              break;
-            case 'maxTracks':
-              changes.maxTracks = value;
-              valueDisplay.textContent = value;
               break;
           }
           this.onConfigChange(changes);

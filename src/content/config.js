@@ -8,10 +8,9 @@
   const DEFAULT_CONFIG = {
     enabled: true,
     opacity: 0.85,
-    fontSize: 22,
+    fontSizePercent: 100,
     speed: 8,
-    maxTracks: 15,
-    trackHeight: 32,
+    displayAreaPercent: 100,
     verticalStart: 0.05
   };
 
