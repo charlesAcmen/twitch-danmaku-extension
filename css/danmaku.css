@@ -140,10 +140,10 @@
 }
 
 .danmaku-setting-row .setting-value {
-  width: 32px;
+  width: 40px;
   text-align: right;
   font-size: 11px;
-  color: #888;
+  color: #ccc;
   flex-shrink: 0;
 }
 
