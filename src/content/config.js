@@ -9,7 +9,7 @@
     enabled: true,
     opacity: 0.85,
     fontSizePercent: 100,
-    speed: 8,
+    speed: 6.5,
     displayAreaPercent: 100,
     verticalStart: 0.05,
     fontFamily: '"Microsoft YaHei", "微软雅黑", sans-serif',

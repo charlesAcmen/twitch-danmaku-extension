@@ -68,12 +68,16 @@
   }
 
   // ── Speed stage mapping ───────────────────────────────────────────────
-  const SPEED_VALUES  = [12, 10, 8, 6, 4];
+  const SPEED_VALUES  = [11, 8.5, 6.5, 4.8, 3.2];
   const SPEED_LABELS  = ['极慢', '较慢', '适中', '较快', '极快'];
 
   function speedToIndex(speed) {
-    const idx = SPEED_VALUES.indexOf(speed);
-    return idx === -1 ? 2 : idx; // default to 适中
+    if (typeof speed !== 'number') return 2; // default to 适中
+    return SPEED_VALUES.reduce((bestIndex, value, index) => {
+      const bestDistance = Math.abs(SPEED_VALUES[bestIndex] - speed);
+      const distance = Math.abs(value - speed);
+      return distance < bestDistance ? index : bestIndex;
+    }, 2);
   }
 
   class DanmakuUI {
