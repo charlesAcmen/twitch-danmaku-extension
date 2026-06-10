@@ -265,7 +265,9 @@
       const item = document.createElement('span');
       item.className = className;
 
-      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">` + escapeHTML(username) + `: </span>`;
+      const authorHtml = this.config.showSender === false
+        ? ''
+        : `<span class="danmaku-author" style="color: ${color || '#ffffff'};">` + escapeHTML(username) + `: </span>`;
       const msgHtml = `<span class="danmaku-msg">${createContentHTML(text, emotes)}</span>`;
       item.innerHTML = authorHtml + msgHtml;
       item.style.visibility = 'hidden';

@@ -14,7 +14,8 @@
     verticalStart: 0.05,
     fontFamily: '"Microsoft YaHei", "微软雅黑", sans-serif',
     fontWeight: 'normal',
-    strokeType: 'outline'
+    strokeType: 'outline',
+    showSender: true
   };
 
   const STORAGE_KEY = 'twitch_danmaku_config';

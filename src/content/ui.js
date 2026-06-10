@@ -174,6 +174,14 @@
         </div>
 
         <div class="danmaku-setting-row">
+          <label>发送者 ID</label>
+          <label class="danmaku-checkbox-label">
+            <input type="checkbox" data-setting="showSender"
+              ${this.config.showSender !== false ? 'checked' : ''}> 显示
+          </label>
+        </div>
+
+        <div class="danmaku-setting-row">
           <label>描边类型</label>
           <div class="danmaku-btn-group" data-setting="strokeType">
             <button class="danmaku-btn ${this.config.strokeType === 'heavy'   ? 'active' : ''}" data-value="heavy">重墨</button>
@@ -244,6 +252,13 @@
       if (checkbox) {
         checkbox.addEventListener('change', (e) => {
           this._dispatchChange({ fontWeight: e.target.checked ? 'bold' : 'normal' });
+        });
+      }
+
+      const showSenderCheckbox = this.settingsPanel.querySelector('input[type="checkbox"][data-setting="showSender"]');
+      if (showSenderCheckbox) {
+        showSenderCheckbox.addEventListener('change', (e) => {
+          this._dispatchChange({ showSender: e.target.checked });
         });
       }
 
