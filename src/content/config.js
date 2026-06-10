@@ -11,7 +11,10 @@
     fontSizePercent: 100,
     speed: 8,
     displayAreaPercent: 100,
-    verticalStart: 0.05
+    verticalStart: 0.05,
+    fontFamily: '"Microsoft YaHei", "微软雅黑", sans-serif',
+    fontWeight: 'normal',
+    strokeType: 'outline'
   };
 
   const STORAGE_KEY = 'twitch_danmaku_config';

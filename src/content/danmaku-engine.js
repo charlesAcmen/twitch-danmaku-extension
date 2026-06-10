@@ -210,13 +210,23 @@
       }
     }
 
+    _applyItemStyles(item, fontSize) {
+      item.style.fontFamily = this.config.fontFamily || '"Microsoft YaHei", sans-serif';
+      item.style.fontWeight = this.config.fontWeight || 'normal';
+      item.style.fontSize = fontSize + 'px';
+      // Apply stroke class
+      item.classList.remove('stroke-heavy', 'stroke-outline', 'stroke-shadow');
+      const stroke = this.config.strokeType || 'outline';
+      item.classList.add('stroke-' + stroke);
+    }
+
     _renderFixedItem(data, slotIndex, containerRect, actualFontSize) {
       const { username, text, color, emotes } = data;
 
       const item = document.createElement('span');
       item.className = 'danmaku-item fixed-top';
       
-      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">${escapeHTML(username)}: </span>`;
+      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">` + escapeHTML(username) + `: </span>`;
       const msgHtml = `<span class="danmaku-msg">${createContentHTML(text, emotes)}</span>`;
       item.innerHTML = authorHtml + msgHtml;
 
@@ -225,8 +235,8 @@
       const trackTop = topPadding + slotIndex * slotHeight;
       
       item.style.top = trackTop + 'px';
-      item.style.fontSize = actualFontSize + 'px';
       item.style.setProperty('--danmaku-opacity', this.config.opacity);
+      this._applyItemStyles(item, actualFontSize);
       
       this.container.appendChild(item);
       
@@ -246,15 +256,15 @@
       const item = document.createElement('span');
       item.className = 'danmaku-item';
       
-      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">${escapeHTML(username)}: </span>`;
+      const authorHtml = `<span class="danmaku-author" style="color: ${color || '#ffffff'};">` + escapeHTML(username) + `: </span>`;
       const msgHtml = `<span class="danmaku-msg">${createContentHTML(text, emotes)}</span>`;
       item.innerHTML = authorHtml + msgHtml;
 
       const trackTop = this.config.verticalStart * containerRect.height + trackIndex * trackHeight;
       item.style.top = trackTop + 'px';
-      item.style.fontSize = actualFontSize + 'px';
       
       item.style.visibility = 'hidden';
+      this._applyItemStyles(item, actualFontSize);
       this.container.appendChild(item);
       
       const W = item.offsetWidth;
