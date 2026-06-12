@@ -117,6 +117,47 @@
         this.timer = null;
         console.log('[StressTest] Flood stopped.');
       }
+    },
+
+    /**
+     * Tests and simulates rendering of a third-party or follower emote.
+     * Specifically simulates the channel-restricted follower emote 'xqcL'.
+     *
+     * How it works:
+     * 1. Manually populates the global emote cache (window.__TD_EMOTE_CACHE__)
+     *    simulating what the background MutationObserver does when it spots a
+     *    third-party emote image element in the Twitch chat DOM.
+     * 2. Dispatches a simulated custom Twitch chat event containing the emote word.
+     * 3. The DanmakuEngine processes the message, replaces the word with the image,
+     *    and renders it using the correct aspect-ratio styles.
+     */
+    testThirdPartyEmote() {
+      console.log('[StressTest] Simulating third-party emote cache and message for: xqcL');
+
+      // 1. Manually populate window.__TD_EMOTE_CACHE__ (mimics the DOM scanner)
+      if (!window.__TD_EMOTE_CACHE__) {
+        window.__TD_EMOTE_CACHE__ = {};
+      }
+
+      // We cache 'xqcL' with a valid CDN URL and aspect ratio 1.0 (square)
+      window.__TD_EMOTE_CACHE__['xqcL'] = {
+        src: 'https://static-cdn.jtvnw.net/emoticons/v2/emoticon-v2-dcf1767b-1175-4d0a-9d95-8b22a00c6d7e-default-dark-3.0',
+        ratio: 1.0
+      };
+
+      // 2. Dispatch a message containing the word "xqcL" (no official Twitch tags)
+      const payload = {
+        type: 'PRIVMSG',
+        username: 'Juicer_xqc',
+        color: '#00FF7F',
+        message: 'xqcL xqcL follower emotes can only be used in xQc channel xqcL !',
+        emotes: [], // Simulating a third-party emote where Twitch does not send tags
+        timestamp: Date.now()
+      };
+
+      const event = new CustomEvent('__twitch_danmaku_msg__', { detail: payload });
+      window.dispatchEvent(event);
+      console.log('[StressTest] Dispatch complete. "xqcL" should be rendered as an image on your danmaku overlay.');
     }
   };
 
@@ -128,5 +169,6 @@
   console.log('  - window.DanmakuStressTest.fireFixedBurst(10)');
   console.log('  - window.DanmakuStressTest.startFlood(100)');
   console.log('  - window.DanmakuStressTest.stopFlood()');
+  console.log('  - window.DanmakuStressTest.testThirdPartyEmote()');
 
 })(window);
