@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Overlays Twitch chat as scrolling comments (Danmaku) directly onto the video player.",
   "author": "charlesAcmen",
-  "permissions": ["storage", "localFonts"],
+  "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["https://www.twitch.tv/*"],
