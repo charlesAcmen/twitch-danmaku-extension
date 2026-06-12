@@ -5,66 +5,89 @@
 (function (exports) {
   'use strict';
 
-  // ── Font detection using canvas ──────────────────────────────────────
-  const FONT_CANDIDATES = [
-    // Chinese fonts (from image + common)
-    { label: '微软雅黑 Light',  value: '"Microsoft YaHei Light", "Microsoft YaHei", sans-serif', key: 'Microsoft YaHei Light' },
-    { label: '微软雅黑',        value: '"Microsoft YaHei", "微软雅黑", sans-serif',              key: 'Microsoft YaHei' },
-    { label: '黑体',            value: '"SimHei", "黑体", sans-serif',                            key: 'SimHei' },
-    { label: '宋体',            value: '"SimSun", "宋体", serif',                                key: 'SimSun' },
-    { label: '新宋体',          value: '"NSimSun", "新宋体", serif',                             key: 'NSimSun' },
-    { label: '仿宋',            value: '"FangSong", "仿宋", serif',                              key: 'FangSong' },
-    { label: '楷体',            value: '"KaiTi", "楷体", serif',                                key: 'KaiTi' },
-    { label: 'PingFang SC',    value: '"PingFang SC", "苹方", sans-serif',                      key: 'PingFang SC' },
-    { label: 'Hiragino Sans',  value: '"Hiragino Sans", sans-serif',                            key: 'Hiragino Sans' },
-    // Common English fonts
-    { label: 'Arial',          value: 'Arial, sans-serif',            key: 'Arial' },
-    { label: 'Georgia',        value: 'Georgia, serif',               key: 'Georgia' },
-    { label: 'Times New Roman',value: '"Times New Roman", serif',     key: 'Times New Roman' },
-    { label: 'Verdana',        value: 'Verdana, sans-serif',          key: 'Verdana' },
-    { label: 'Courier New',    value: '"Courier New", monospace',     key: 'Courier New' },
-    { label: 'Impact',         value: 'Impact, sans-serif',           key: 'Impact' },
-    { label: 'Trebuchet MS',   value: '"Trebuchet MS", sans-serif',   key: 'Trebuchet MS' },
-    { label: 'Comic Sans MS',  value: '"Comic Sans MS", cursive',     key: 'Comic Sans MS' },
-    { label: 'Palatino',       value: '"Palatino Linotype", serif',   key: 'Palatino Linotype' },
+  // ── Dynamic font detection using Local Font Access API ──────────────
+  // Fallback fonts when Local Font Access API is unavailable
+  const FALLBACK_FONTS = [
+    { label: '微软雅黑', value: '"Microsoft YaHei", "微软雅黑", sans-serif', family: 'Microsoft YaHei' },
+    { label: 'Arial', value: 'Arial, sans-serif', family: 'Arial' },
+    { label: 'Georgia', value: 'Georgia, serif', family: 'Georgia' },
+    { label: 'Verdana', value: 'Verdana, sans-serif', family: 'Verdana' },
+    { label: 'Times New Roman', value: '"Times New Roman", serif', family: 'Times New Roman' },
   ];
 
-  function isFontAvailable(fontName) {
+  let _availableFonts = null; // cached
+  let _fontLoadingPromise = null; // prevent concurrent requests
+
+  /**
+   * Query system fonts using Local Font Access API
+   * Falls back to a hardcoded list if API is unavailable
+   */
+  async function querySystemFonts() {
+    // Check if Local Font Access API is available
+    if (!('queryLocalFonts' in window)) {
+      console.warn('[Twitch Danmaku] Local Font Access API not available, using fallback fonts');
+      return FALLBACK_FONTS;
+    }
+
     try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 300; canvas.height = 60;
-      const ctx = canvas.getContext('2d');
-      const testStr = 'abcdefghijklmm测试宋体ABCDE12345';
-      const SIZE = '48px';
-
-      ctx.font = `${SIZE} monospace`;
-      const monoW = ctx.measureText(testStr).width;
-      ctx.font = `${SIZE} sans-serif`;
-      const sansW = ctx.measureText(testStr).width;
-
-      ctx.font = `${SIZE} '${fontName}', monospace`;
-      const fMonoW = ctx.measureText(testStr).width;
-      ctx.font = `${SIZE} '${fontName}', sans-serif`;
-      const fSansW = ctx.measureText(testStr).width;
-
-      return fMonoW !== monoW || fSansW !== sansW;
-    } catch(e) {
-      return false;
+      // Request permission and query local fonts
+      const availableFonts = await window.queryLocalFonts();
+      
+      // Create a unique set of font families (deduplicate by family name)
+      const uniqueFontMap = new Map();
+      
+      for (const fontData of availableFonts) {
+        const family = fontData.family;
+        if (!uniqueFontMap.has(family)) {
+          // Create font entry with proper CSS value
+          uniqueFontMap.set(family, {
+            label: family,
+            value: family.includes(' ') ? `"${family}", sans-serif` : `${family}, sans-serif`,
+            family: family
+          });
+        }
+      }
+      
+      // Convert map to array and sort alphabetically
+      const fontList = Array.from(uniqueFontMap.values()).sort((a, b) => 
+        a.family.localeCompare(b.family, undefined, { sensitivity: 'base' })
+      );
+      
+      console.log(`[Twitch Danmaku] Loaded ${fontList.length} system fonts`);
+      return fontList.length > 0 ? fontList : FALLBACK_FONTS;
+      
+    } catch (error) {
+      // User denied permission or API error
+      console.warn('[Twitch Danmaku] Failed to query local fonts:', error.message);
+      return FALLBACK_FONTS;
     }
   }
 
-  let _availableFonts = null; // cached
+  /**
+   * Get available fonts (with caching and async loading)
+   * Returns a Promise that resolves to font list
+   */
   function getAvailableFonts() {
-    if (_availableFonts) return _availableFonts;
-    _availableFonts = FONT_CANDIDATES.filter(f => isFontAvailable(f.key));
-    // Always ensure at least a few fallbacks are in the list
-    if (_availableFonts.length === 0) {
-      _availableFonts = [
-        { label: 'Arial', value: 'Arial, sans-serif', key: 'Arial' },
-        { label: 'Georgia', value: 'Georgia, serif', key: 'Georgia' },
-      ];
+    if (_availableFonts) {
+      return Promise.resolve(_availableFonts);
     }
-    return _availableFonts;
+    
+    if (_fontLoadingPromise) {
+      return _fontLoadingPromise;
+    }
+    
+    _fontLoadingPromise = querySystemFonts().then(fonts => {
+      _availableFonts = fonts;
+      _fontLoadingPromise = null;
+      return fonts;
+    }).catch(error => {
+      console.error('[Twitch Danmaku] Error loading fonts:', error);
+      _availableFonts = FALLBACK_FONTS;
+      _fontLoadingPromise = null;
+      return FALLBACK_FONTS;
+    });
+    
+    return _fontLoadingPromise;
   }
 
   // ── Speed stage mapping ───────────────────────────────────────────────
@@ -105,8 +128,10 @@
       this.toggleBtn.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this._renderPanelContent();
-        this.settingsPanel.classList.toggle('visible');
+        // Use async call since _renderPanelContent is now async
+        this._renderPanelContent().then(() => {
+          this.settingsPanel.classList.toggle('visible');
+        });
       });
 
       this.settingsPanel = document.createElement('div');
@@ -121,9 +146,24 @@
       });
     }
 
-    _renderPanelContent() {
+    async _renderPanelContent() {
       const speedIdx = speedToIndex(this.config.speed);
-      const availFonts = getAvailableFonts();
+      
+      // Show loading state while fonts are being queried
+      this.settingsPanel.innerHTML = `
+        <h3>💬 弹幕设置</h3>
+        <div class="danmaku-setting-row">
+          <label>弹幕字体</label>
+          <div class="danmaku-font-controls">
+            <select data-setting="fontFamily" class="danmaku-select" disabled>
+              <option>正在加载字体列表...</option>
+            </select>
+          </div>
+        </div>
+      `;
+      
+      // Load fonts asynchronously
+      const availFonts = await getAvailableFonts();
       const fontOptionsHTML = availFonts.map(f =>
         `<option value='${f.value}' ${this.config.fontFamily === f.value ? 'selected' : ''}>${f.label}</option>`
       ).join('');
@@ -271,6 +311,7 @@
           if (!defaults) return;
           this.config = { ...defaults };
           this.toggleBtn.classList.toggle('danmaku-off', !this.config.enabled);
+          // Re-render with async call
           this._renderPanelContent();
         });
       }
