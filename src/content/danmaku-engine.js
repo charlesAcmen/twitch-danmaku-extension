@@ -45,27 +45,97 @@
    * @param {Array<{id:string,start:number,end:number}>} emotes
    * @returns {string} safe HTML
    */
+  /**
+   * Build inner HTML for a message replacing emote ranges with <img> tags.
+   * Expects emotes to be objects with {id, start, end} (Twitch-style inclusive indices).
+   * Overlaps are skipped conservatively. Supports third-party emotes from cache.
+   * @param {string} text
+   * @param {Array<{id:string,start:number,end:number}>} emotes
+   * @returns {string} safe HTML
+   */
   function createContentHTML(text, emotes) {
-    if (!emotes || emotes.length === 0) {
+    const emoteCache = window.__TD_EMOTE_CACHE__ || {};
+    const allEmotes = [];
+
+    // 1. Ingest official Twitch emotes
+    if (emotes && emotes.length > 0) {
+      for (const e of emotes) {
+        allEmotes.push({
+          id: e.id,
+          src: `https://static-cdn.jtvnw.net/emoticons/v2/${e.id}/default/dark/1.0`,
+          start: e.start,
+          end: e.end, // inclusive index
+          ratio: 1
+        });
+      }
+    }
+
+    // 2. Tokenize text to find matches for third-party emotes
+    // Emotes must be standalone words separated by spaces.
+    const words = [];
+    let currentWord = '';
+    let wordStart = -1;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (char === ' ' || char === '\t' || char === '\r' || char === '\n') {
+        if (currentWord.length > 0) {
+          words.push({ text: currentWord, start: wordStart, end: i - 1 });
+          currentWord = '';
+          wordStart = -1;
+        }
+      } else {
+        if (wordStart === -1) {
+          wordStart = i;
+        }
+        currentWord += char;
+      }
+    }
+    if (currentWord.length > 0) {
+      words.push({ text: currentWord, start: wordStart, end: text.length - 1 });
+    }
+
+    // Check words against third-party emote cache
+    for (const w of words) {
+      // Check if word index overlaps with any official Twitch emote
+      const isOfficial = allEmotes.some(e => w.start <= e.end && w.end >= e.start);
+      if (isOfficial) continue;
+
+      // Check if word is a cached third-party emote
+      const cached = emoteCache[w.text];
+      if (cached) {
+        allEmotes.push({
+          id: null,
+          src: cached.src,
+          start: w.start,
+          end: w.end, // inclusive index
+          ratio: cached.ratio || 1
+        });
+      }
+    }
+
+    if (allEmotes.length === 0) {
       return escapeHTML(text);
     }
 
-    const sorted = [...emotes].sort((a, b) => a.start - b.start);
+    // 3. Sort all emotes by start index
+    const sorted = allEmotes.sort((a, b) => a.start - b.start);
     let html = '';
     let currentIndex = 0;
 
     for (const emote of sorted) {
       const start = emote.start;
-      const end = emote.end + 1; // Twitch indices are inclusive
+      const end = emote.end + 1; // Convert to exclusive index for slicing
 
-      if (start < currentIndex) continue; // Safety: skip overlapping ranges
+      if (start < currentIndex) continue; // Safety: skip overlaps
 
       if (start > currentIndex) {
         html += escapeHTML(text.slice(currentIndex, start));
       }
 
-      // Emote resolved via CDN URL; CSS class lets host style sizing/alignment
-      html += `<img src="https://static-cdn.jtvnw.net/emoticons/v2/${emote.id}/default/dark/1.0" class="danmaku-emote" />`;
+      // Render with explicit inline width and height using aspect ratio to prevent layout shifting
+      const ratio = emote.ratio || 1;
+      const widthEm = 1.2 * ratio;
+      html += `<img src="${escapeHTML(emote.src)}" class="danmaku-emote" style="width: ${widthEm}em; height: 1.2em;" />`;
       currentIndex = end;
     }
 
@@ -104,6 +174,8 @@
       this.messageCount = 0;
       this.isRunning = false;
       this._boundTick = this._tick.bind(this);
+      
+      this.domPool = []; // Pool of inactive DOM elements for reuse
 
       // Simple telemetry
       this.stats = {
@@ -127,7 +199,13 @@
      * Clear all state and stop the engine.
      */
     clear() {
-      if (this.container) this.container.innerHTML = '';
+      if (this.container) {
+        // Release all active elements in the container back to the pool
+        const activeNodes = Array.from(this.container.children);
+        for (const node of activeNodes) {
+          this._releaseNode(node);
+        }
+      }
       this.tracks = [];
       this.fixedSlots = [];
       this.scrollQueue = [];
@@ -214,29 +292,57 @@
     }
 
     /**
+     * Retrieve a node from the DOM pool, or create a new one if the pool is empty.
+     * @private
+     * @returns {HTMLElement}
+     */
+    _getPooledNode() {
+      if (this.domPool.length > 0) {
+        const node = this.domPool.pop();
+        node.className = '';
+        node.style.cssText = '';
+        return node;
+      }
+      return document.createElement('span');
+    }
+
+    /**
+     * Clean up and return a node to the DOM pool.
+     * @private
+     * @param {HTMLElement} node
+     */
+    _releaseNode(node) {
+      if (node._timeoutId) {
+        clearTimeout(node._timeoutId);
+        node._timeoutId = null;
+      }
+      node.onanimationend = null;
+      if (node.parentElement) {
+        node.parentElement.removeChild(node);
+      }
+      node.innerHTML = '';
+      node.style.cssText = '';
+      this.domPool.push(node);
+    }
+
+    /**
      * Pick a suitable track index from available tracks. Returns -1 if none available.
-     * Balances tracks by favoring those with fewer items and penalizing recently used tracks.
+     * Deterministic first-safe-track top-down algorithm.
      * @private
      */
     _pickTrack(effectiveMaxTracks, speedPxPerSecond) {
       const now = Date.now();
-      const candidates = [];
 
       for (let i = 0; i < effectiveMaxTracks; i++) {
         const track = this._ensureTrack(i);
         this._pruneTrack(track, now);
 
         if (this._isTrackSafe(track, speedPxPerSecond, now)) {
-          const recentlyUsedPenalty = Math.max(0, 1500 - (now - track.lastStartTime)) / 1500;
-          candidates.push({ index: i, score: track.activeItems.length + recentlyUsedPenalty });
+          return i;
         }
       }
 
-      if (candidates.length === 0) return -1;
-
-      const bestScore = Math.min(...candidates.map(candidate => candidate.score));
-      const relaxedCandidates = candidates.filter(candidate => candidate.score <= bestScore + 1);
-      return relaxedCandidates[Math.floor(Math.random() * relaxedCandidates.length)].index;
+      return -1;
     }
 
     /**
@@ -335,7 +441,7 @@
         const speedPxPerSecond = containerRect.width / this.config.speed;
         const trackIndex = this._pickTrack(effectiveMaxTracks, speedPxPerSecond);
         if (trackIndex === -1) {
-          item.remove();
+          this._releaseNode(item); // Release back to DOM pool instead of destroying
           break;
         }
 
@@ -351,7 +457,7 @@
     _createItemElement(data, className, fontSize) {
       const { username, text, color, emotes } = data;
 
-      const item = document.createElement('span');
+      const item = this._getPooledNode();
       item.className = className;
 
       const authorHtml = this.config.showSender === false
@@ -403,8 +509,15 @@
       this.messageCount++;
       this.stats.rendered++;
 
-      item.addEventListener('animationend', () => item.remove());
-      setTimeout(() => { if (item.parentElement) item.remove(); }, (stayDuration + 1) * 1000);
+      item.onanimationend = () => {
+        this._releaseNode(item);
+      };
+
+      const timeoutId = setTimeout(() => {
+        item._timeoutId = null;
+        this._releaseNode(item);
+      }, (stayDuration + 1) * 1000);
+      item._timeoutId = timeoutId;
     }
 
     /**
@@ -440,8 +553,15 @@
       this.messageCount++;
       this.stats.rendered++;
 
-      item.addEventListener('animationend', () => item.remove());
-      setTimeout(() => { if (item.parentElement) item.remove(); }, (totalDuration + 1) * 1000);
+      item.onanimationend = () => {
+        this._releaseNode(item);
+      };
+
+      const timeoutId = setTimeout(() => {
+        item._timeoutId = null;
+        this._releaseNode(item);
+      }, (totalDuration + 1) * 1000);
+      item._timeoutId = timeoutId;
     }
   }
 
