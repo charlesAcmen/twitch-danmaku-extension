@@ -1,6 +1,7 @@
 # Markdown files (except README.md)
 *.md
 !README.md
+!PRIVACY.md
 
 # OS generated files
 .DS_Store

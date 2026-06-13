@@ -1,10 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Danmaku for Twitch", 
+  "name": "Danmaku for Twitch",
+  "short_name": "Twitch Danmaku",
   "version": "1.0.0",
-  "description": "Overlays Twitch chat as scrolling comments (Danmaku) directly onto the video player.",
+  "description": "Displays Twitch chat as scrolling danmaku (bullet comments) on the video player. High-performance, privacy-focused, open-source.",
   "author": "charlesAcmen",
+  "homepage_url": "https://github.com/yourusername/twitch-danmaku",
   "permissions": ["storage"],
+  "host_permissions": [],
   "content_scripts": [
     {
       "matches": ["https://www.twitch.tv/*"],
@@ -23,6 +26,7 @@
         "src/content/danmaku-engine.js",
         "src/content/ui.js",
         "src/content/twitch-player.js",
+        "src/content/emote-scanner.js",
         "src/content/main.js"
       ],
       "css": ["css/danmaku.css"],

@@ -49,17 +49,32 @@
    * Build inner HTML for a message replacing emote ranges with <img> tags.
    * Expects emotes to be objects with {id, start, end} (Twitch-style inclusive indices).
    * Overlaps are skipped conservatively. Supports third-party emotes from cache.
-   * @param {string} text
-   * @param {Array<{id:string,start:number,end:number}>} emotes
-   * @returns {string} safe HTML
+   * 
+   * 为消息构建内部 HTML，将表情范围替换为 <img> 标签。
+   * 期望表情是具有 {id, start, end} 的对象（Twitch 风格的包含索引）。
+   * 保守地跳过重叠。支持来自缓存的第三方表情。
+   * 
+   * @param {string} text - The message text / 消息文本
+   * @param {Array<{id:string,start:number,end:number}>} emotes - Twitch emotes / Twitch 表情
+   * @returns {string} - Safe HTML / 安全的 HTML
    */
   function createContentHTML(text, emotes) {
+    // Input validation / 输入验证
+    if (typeof text !== 'string') {
+      console.warn('[Twitch Danmaku] Invalid text input to createContentHTML');
+      return '';
+    }
+
     const emoteCache = window.__TD_EMOTE_CACHE__ || {};
     const allEmotes = [];
 
     // 1. Ingest official Twitch emotes
-    if (emotes && emotes.length > 0) {
+    // 1. 获取官方 Twitch 表情
+    if (emotes && Array.isArray(emotes) && emotes.length > 0) {
       for (const e of emotes) {
+        if (!e || typeof e.id === 'undefined' || typeof e.start !== 'number' || typeof e.end !== 'number') {
+          continue; // Skip invalid emote objects / 跳过无效的表情对象
+        }
         allEmotes.push({
           id: e.id,
           src: `https://static-cdn.jtvnw.net/emoticons/v2/${e.id}/default/dark/1.0`,
@@ -72,9 +87,12 @@
 
     // 2. Tokenize text to find matches for third-party emotes
     // Emotes must be standalone words separated by spaces.
+    // 2. 对文本进行词法分析以查找第三方表情的匹配项
+    // 表情必须是由空格分隔的独立单词。
     const words = [];
     let currentWord = '';
     let wordStart = -1;
+    
     for (let i = 0; i < text.length; i++) {
       const char = text[i];
       if (char === ' ' || char === '\t' || char === '\r' || char === '\n') {
@@ -95,14 +113,17 @@
     }
 
     // Check words against third-party emote cache
+    // 根据第三方表情缓存检查单词
     for (const w of words) {
       // Check if word index overlaps with any official Twitch emote
+      // 检查单词索引是否与任何官方 Twitch 表情重叠
       const isOfficial = allEmotes.some(e => w.start <= e.end && w.end >= e.start);
       if (isOfficial) continue;
 
       // Check if word is a cached third-party emote
+      // 检查单词是否是缓存的第三方表情
       const cached = emoteCache[w.text];
-      if (cached) {
+      if (cached && cached.src) {
         allEmotes.push({
           id: null,
           src: cached.src,
@@ -118,24 +139,27 @@
     }
 
     // 3. Sort all emotes by start index
+    // 3. 按起始索引对所有表情排序
     const sorted = allEmotes.sort((a, b) => a.start - b.start);
     let html = '';
     let currentIndex = 0;
 
     for (const emote of sorted) {
       const start = emote.start;
-      const end = emote.end + 1; // Convert to exclusive index for slicing
+      const end = emote.end + 1; // Convert to exclusive index for slicing / 转换为切片的独占索引
 
-      if (start < currentIndex) continue; // Safety: skip overlaps
+      if (start < currentIndex) continue; // Safety: skip overlaps / 安全：跳过重叠
 
       if (start > currentIndex) {
         html += escapeHTML(text.slice(currentIndex, start));
       }
 
       // Render with explicit inline width and height using aspect ratio to prevent layout shifting
+      // 使用宽高比渲染显式内联宽度和高度以防止布局偏移
       const ratio = emote.ratio || 1;
       const widthEm = 1.2 * ratio;
-      html += `<img src="${escapeHTML(emote.src)}" class="danmaku-emote" style="width: ${widthEm}em; height: 1.2em;" />`;
+      const escapedSrc = escapeHTML(emote.src);
+      html += `<img src="${escapedSrc}" class="danmaku-emote" style="width: ${widthEm}em; height: 1.2em;" />`;
       currentIndex = end;
     }
 
