@@ -257,7 +257,7 @@
 
       const now = Date.now();
       if (now - this.lastLogTime > 2000 && this.droppedSinceLastLog.length > 0) {
-        console.warn(`[Twitch Danmaku] Queue max capacity (${this.config.maxQueueSize}) reached. Dropped ${this.droppedSinceLastLog.length} oldest messages in the last 2s to maintain real-time sync. Total dropped: ${this.stats.dropped}`, this.droppedSinceLastLog);
+        // console.warn(`[Twitch Danmaku] Queue max capacity (${this.config.maxQueueSize}) reached. Dropped ${this.droppedSinceLastLog.length} oldest messages in the last 2s to maintain real-time sync. Total dropped: ${this.stats.dropped}`, this.droppedSinceLastLog);
         this.droppedSinceLastLog = [];
         this.lastLogTime = now;
       }

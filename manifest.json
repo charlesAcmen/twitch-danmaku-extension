@@ -1,7 +1,6 @@
 {
   "manifest_version": 3,
   "name": "Danmaku for Twitch",
-  "short_name": "Twitch Danmaku",
   "version": "1.0.0",
   "description": "Displays Twitch chat as scrolling danmaku (bullet comments) on the video player. High-performance, privacy-focused, open-source.",
   "author": "charlesAcmen",
