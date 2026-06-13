@@ -266,6 +266,17 @@
   max-width: 120px;
 }
 
+/* 让选择器本身也应用选中的字体 */
+.danmaku-select[data-setting="fontFamily"] {
+  font-family: var(--selected-font-family, inherit);
+}
+
+/* 让下拉选项也应用各自的字体 */
+.danmaku-select option {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 .danmaku-select:focus {
   outline: 1px solid #9147ff;
   border-color: #9147ff;
