@@ -218,7 +218,7 @@
       // Load fonts asynchronously
       const availFonts = await getAvailableFonts();
       const fontOptionsHTML = availFonts.map(f =>
-        `<option value='${f.value}' style="font-family: ${f.value};" ${this.config.fontFamily === f.value ? 'selected' : ''}>${f.label}</option>`
+        `<option value='${f.value}' style="font-family: ${f.value} !important;" ${this.config.fontFamily === f.value ? 'selected' : ''}>${f.label}</option>`
       ).join('');
 
       this.settingsPanel.innerHTML = `
@@ -335,12 +335,10 @@
       // Font family select
       const select = this.settingsPanel.querySelector('select[data-setting="fontFamily"]');
       if (select) {
-        // Set initial font style for the select element
-        select.style.fontFamily = this.config.fontFamily || 'inherit';
+        // Don't set select's font-family to avoid inheritance issues
+        // Each option has its own font-family set via inline style
         
         select.addEventListener('change', (e) => {
-          // Update the select element's own font when changed
-          e.target.style.fontFamily = e.target.value;
           this._dispatchChange({ fontFamily: e.target.value });
         });
       }

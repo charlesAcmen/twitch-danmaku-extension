@@ -249,12 +249,7 @@
   max-width: 120px;
 }
 
-/* 让选择器本身也应用选中的字体 */
-.danmaku-select[data-setting="fontFamily"] {
-  font-family: var(--selected-font-family, inherit);
-}
-
-/* 让下拉选项也应用各自的字体 */
+/* Each option will have its own font-family via inline style with !important */
 .danmaku-select option {
   padding: 4px 8px;
   font-size: 12px;
