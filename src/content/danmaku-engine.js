@@ -473,12 +473,31 @@
 
     /**
      * Apply font and stroke styles to item based on config.
+     * Adds comprehensive emoji and special character fallback fonts.
      * @private
      */
     _applyItemStyles(item, fontSize) {
-      item.style.fontFamily = this.config.fontFamily || '"Microsoft YaHei", sans-serif';
+      // Build font-family with comprehensive fallbacks for emoji and special characters
+      const userFont = this.config.fontFamily || '"Microsoft YaHei", sans-serif';
+      
+      // Add comprehensive fallback chain for emoji and special Unicode characters
+      // This ensures rare/new emoji (like 🫪) render correctly
+      const emojiFallbacks = [
+        'Apple Color Emoji',      // iOS/macOS emoji
+        'Segoe UI Emoji',         // Windows 10+ emoji
+        'Segoe UI Symbol',        // Windows symbols
+        'Noto Color Emoji',       // Android/Linux emoji
+        'Android Emoji',          // Older Android
+        'EmojiOne Color',         // EmojiOne font
+        'Twemoji Mozilla',        // Firefox emoji
+        'sans-serif'              // Final fallback
+      ].map(f => f.includes(' ') ? `"${f}"` : f).join(', ');
+      
+      // Combine: user font first, then emoji fallbacks
+      item.style.fontFamily = `${userFont}, ${emojiFallbacks}`;
       item.style.fontWeight = this.config.fontWeight || 'normal';
       item.style.fontSize = fontSize + 'px';
+      
       // Apply stroke class (CSS must provide the visuals)
       item.classList.remove('stroke-heavy', 'stroke-outline', 'stroke-shadow');
       const stroke = this.config.strokeType || 'outline';
