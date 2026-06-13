@@ -31,11 +31,18 @@
     ];
     
     // Check if font name contains symbol keywords
+    //some() returns true immediately when one element match the case
     if (symbolKeywords.some(keyword => family.includes(keyword))) {
       return false;
     }
     
     // Exclude fonts with only special characters in name
+    //^ is the beginning of the string
+    //$ is the ending of the string
+    //[...]:every character in the string
+    //\x:hexadecimal,from 00 to 1F(from 0 to 31),which is invisable control characters in ASCII
+    //7F(backspace) to 9F(ISO-8859-1 control characters)
+    //+:match one or more times
     if (/^[\x00-\x1F\x7F-\x9F]+$/.test(fontData.family)) {
       return false;
     }
@@ -47,6 +54,7 @@
    * Query system fonts using Local Font Access API
    * Falls back to a hardcoded list if API is unavailable
    */
+  //window.queryLocalFonts() is a async interface,so async here
   async function querySystemFonts() {
     // Check if Local Font Access API is available
     if (!('queryLocalFonts' in window)) {
@@ -72,6 +80,7 @@
           // Create font entry with proper CSS value
           uniqueFontMap.set(family, {
             label: family,
+            //CSS standard:quote the family when includes space
             value: family.includes(' ') ? `"${family}", sans-serif` : `${family}, sans-serif`,
             family: family
           });
@@ -80,6 +89,8 @@
       
       // Convert map to array and sort alphabetically
       const fontList = Array.from(uniqueFontMap.values()).sort((a, b) => 
+        //localCompares characters in all languages in alphabetical order
+        //sensitivity:base means ignore case and accents
         a.family.localeCompare(b.family, undefined, { sensitivity: 'base' })
       );
       
@@ -97,6 +108,8 @@
    * Get available fonts (with caching and async loading)
    * Returns a Promise that resolves to font list
    */
+  //Singeleton/Cache Lock:
+  //Prevent multiple concurrent calls to querySystemFonts()
   function getAvailableFonts() {
     if (_availableFonts) {
       return Promise.resolve(_availableFonts);
@@ -124,11 +137,17 @@
   const SPEED_VALUES  = [11, 8.5, 6.5, 4.8, 3.2];
   const SPEED_LABELS  = ['极慢', '较慢', '适中', '较快', '极快'];
 
+  //Nearest Neighbor Search
   function speedToIndex(speed) {
     if (typeof speed !== 'number') return 2; // default to 适中
+    //.reduce:iterate on every elements,and find out the best index
     return SPEED_VALUES.reduce((bestIndex, value, index) => {
+      //distance between closest gear and actual speed
       const bestDistance = Math.abs(SPEED_VALUES[bestIndex] - speed);
+      //distance between this gear and actual speed
       const distance = Math.abs(value - speed);
+      //if smaller than the best,which means this gear is closer,
+      //then update the best index to current index
       return distance < bestDistance ? index : bestIndex;
     }, 2);
   }
@@ -146,6 +165,8 @@
       this._createControls();
     }
 
+
+    //_ at the beginning of every fake private methods,that's a convention not grammer in js
     _createControls() {
       this.toggleBtn = document.createElement('button');
       this.toggleBtn.className = 'danmaku-toggle-btn' + (this.config.enabled ? '' : ' danmaku-off');
@@ -154,12 +175,17 @@
       
       // Left click: toggle danmaku on/off
       this.toggleBtn.addEventListener('click', (e) => {
+        //The stopPropagation() method of the Event interface prevents 
+        //further propagation of the current event in the capturing and bubbling phases.
         e.stopPropagation();
         this._handleToggle();
       });
       
       // Right click: toggle settings panel
       this.toggleBtn.addEventListener('contextmenu', (e) => {
+        //The preventDefault() method of the Event interface tells the user agent that
+        //if the event does not get explicitly handled, 
+        //its default action should not be taken as it normally would be.
         e.preventDefault();
         e.stopPropagation();
         this._togglePanel();
@@ -217,8 +243,11 @@
       
       // Load fonts asynchronously
       const availFonts = await getAvailableFonts();
+      //.map returns an array of HTML strings
       const fontOptionsHTML = availFonts.map(f =>
+        //the font-family of each option is set via inline style to ensure proper display
         `<option value='${f.value}' style="font-family: ${f.value} !important;" ${this.config.fontFamily === f.value ? 'selected' : ''}>${f.label}</option>`
+      //connected by empty character to convert the array to pure text
       ).join('');
 
       this.settingsPanel.innerHTML = `
@@ -385,6 +414,7 @@
       } else {
         this.toggleBtn.classList.remove('danmaku-off');
       }
+      //callback the actual switch logics
       this.onToggle(!isEnabled);
     }
 
@@ -394,5 +424,5 @@
     }
   }
   exports.DanmakuUI = DanmakuUI;
-
+//mount on property "__TD_UI__"
 })(window.__TD_UI__ = window.__TD_UI__ || {});
