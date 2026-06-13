@@ -112,6 +112,7 @@
 
       this.toggleBtn = null;
       this.settingsPanel = null;
+      this.backdrop = null; // 透明遮罩层
 
       this._createControls();
     }
@@ -121,29 +122,54 @@
       this.toggleBtn.className = 'danmaku-toggle-btn' + (this.config.enabled ? '' : ' danmaku-off');
       this.toggleBtn.title = '弹幕开关';
       this.toggleBtn.textContent = '弹';
+      
+      // Left click: toggle danmaku on/off
       this.toggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this._handleToggle();
       });
+      
+      // Right click: toggle settings panel
       this.toggleBtn.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        // Use async call since _renderPanelContent is now async
-        this._renderPanelContent().then(() => {
-          this.settingsPanel.classList.toggle('visible');
-        });
+        this._togglePanel();
       });
 
+      // Create backdrop for closing panel
+      this.backdrop = document.createElement('div');
+      this.backdrop.className = 'danmaku-settings-backdrop';
+      this.backdrop.addEventListener('click', () => {
+        this._closePanel();
+      });
+
+      // Create settings panel
       this.settingsPanel = document.createElement('div');
       this.settingsPanel.className = 'danmaku-settings-panel';
-      this.settingsPanel.addEventListener('mousedown', e => e.stopPropagation());
+      
+      // Prevent clicks inside panel from closing it
       this.settingsPanel.addEventListener('click', e => e.stopPropagation());
+    }
 
-      document.addEventListener('click', (e) => {
-        if (this.settingsPanel && !this.settingsPanel.contains(e.target) && e.target !== this.toggleBtn) {
-          this.settingsPanel.classList.remove('visible');
-        }
+    _togglePanel() {
+      const isVisible = this.settingsPanel.classList.contains('visible');
+      if (isVisible) {
+        this._closePanel();
+      } else {
+        this._openPanel();
+      }
+    }
+
+    _openPanel() {
+      this._renderPanelContent().then(() => {
+        this.backdrop.classList.add('visible');
+        this.settingsPanel.classList.add('visible');
       });
+    }
+
+    _closePanel() {
+      this.backdrop.classList.remove('visible');
+      this.settingsPanel.classList.remove('visible');
     }
 
     async _renderPanelContent() {
@@ -333,6 +359,7 @@
     }
 
     mount(parent) {
+      document.body.appendChild(this.backdrop); // 遮罩层挂载到 body
       parent.appendChild(this.toggleBtn);
       parent.appendChild(this.settingsPanel);
     }
