@@ -2,6 +2,7 @@
 *.md
 !README.md
 !PRIVACY.md
+!SUPPORT.md
 
 # OS generated files
 .DS_Store

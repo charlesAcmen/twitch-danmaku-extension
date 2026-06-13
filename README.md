@@ -1,9 +1,10 @@
 # 💬 Twitch Danmaku Extension
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: CC BY-NC-SA 4.0](https://img.shields.io/badge/License-CC%20BY--NC--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 [![Chrome Web Store](https://img.shields.io/badge/Chrome-Extension-green.svg)](https://chrome.google.com/webstore)
+[![GitHub Stars](https://img.shields.io/github/stars/yourusername/twitch-danmaku?style=social)](https://github.com/yourusername/twitch-danmaku)
 
-[English](#english) | [中文](#中文)
+[English](#english) | [中文](#中文) | [💖 Support / 打赏支持](SUPPORT.md)
 
 ---
 
@@ -137,7 +138,19 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ### 📄 License
 
-This project is open-source and available under the [MIT License](LICENSE).
+This project is open-source and available under the [CC BY-NC-SA 4.0 License](LICENSE).
+
+**Key terms:**
+- ✅ Free to use and modify
+- ✅ Must credit original author
+- ❌ No commercial use
+- ✅ Share modifications under same license
+
+### 💖 Support
+
+If this extension helps you, consider [buying me a coffee](SUPPORT.md)! ☕
+
+Your support helps maintain and improve this project.
 
 ### 🔗 Links
 
@@ -277,7 +290,19 @@ window.DanmakuStressTest.testThirdPartyEmote(); // 注入测试表情
 
 ### 📄 许可证
 
-本项目是开源的，根据 [MIT 许可证](LICENSE) 提供。
+本项目是开源的，根据 [CC BY-NC-SA 4.0 许可证](LICENSE) 提供。
+
+**关键条款：**
+- ✅ 免费使用和修改
+- ✅ 必须注明原作者
+- ❌ 禁止商业用途
+- ✅ 修改后须使用相同许可证分享
+
+### 💖 支持
+
+如果这个扩展对您有帮助，欢迎[请我喝杯咖啡](SUPPORT.md)！☕
+
+您的支持帮助维护和改进这个项目。
 
 ### 🔗 链接
 
