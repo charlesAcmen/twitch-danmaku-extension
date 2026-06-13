@@ -85,23 +85,6 @@
   opacity: 0.5;
 }
 
-/* 弹幕设置面板遮罩 - 点击关闭 */
-.danmaku-settings-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 10000;
-  background: transparent;
-  pointer-events: auto;
-  display: none;
-}
-
-.danmaku-settings-backdrop.visible {
-  display: block;
-}
-
 /* 弹幕设置面板 */
 .danmaku-settings-panel {
   position: absolute;

@@ -19,6 +19,31 @@
   let _fontLoadingPromise = null; // prevent concurrent requests
 
   /**
+   * Filter out symbol/icon fonts that would display as gibberish
+   */
+  function isTextFont(fontData) {
+    const family = fontData.family.toLowerCase();
+    
+    // Exclude symbol and icon fonts
+    const symbolKeywords = [
+      'symbol', 'wingding', 'webding', 'dingbat', 'emoji', 'icon',
+      'material', 'fontawesome', 'awesome', 'glyphicon', 'pictogram'
+    ];
+    
+    // Check if font name contains symbol keywords
+    if (symbolKeywords.some(keyword => family.includes(keyword))) {
+      return false;
+    }
+    
+    // Exclude fonts with only special characters in name
+    if (/^[\x00-\x1F\x7F-\x9F]+$/.test(fontData.family)) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
    * Query system fonts using Local Font Access API
    * Falls back to a hardcoded list if API is unavailable
    */
@@ -37,6 +62,11 @@
       const uniqueFontMap = new Map();
       
       for (const fontData of availableFonts) {
+        // Filter out symbol/icon fonts
+        if (!isTextFont(fontData)) {
+          continue;
+        }
+        
         const family = fontData.family;
         if (!uniqueFontMap.has(family)) {
           // Create font entry with proper CSS value
@@ -53,7 +83,7 @@
         a.family.localeCompare(b.family, undefined, { sensitivity: 'base' })
       );
       
-      console.log(`[Twitch Danmaku] Loaded ${fontList.length} system fonts`);
+      console.log(`[Twitch Danmaku] Loaded ${fontList.length} system fonts (filtered out symbol fonts)`);
       return fontList.length > 0 ? fontList : FALLBACK_FONTS;
       
     } catch (error) {
@@ -112,7 +142,6 @@
 
       this.toggleBtn = null;
       this.settingsPanel = null;
-      this.backdrop = null; // 透明遮罩层
 
       this._createControls();
     }
@@ -136,19 +165,19 @@
         this._togglePanel();
       });
 
-      // Create backdrop for closing panel
-      this.backdrop = document.createElement('div');
-      this.backdrop.className = 'danmaku-settings-backdrop';
-      this.backdrop.addEventListener('click', () => {
-        this._closePanel();
-      });
-
       // Create settings panel
       this.settingsPanel = document.createElement('div');
       this.settingsPanel.className = 'danmaku-settings-panel';
       
       // Prevent clicks inside panel from closing it
       this.settingsPanel.addEventListener('click', e => e.stopPropagation());
+      
+      // Close panel when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!this.settingsPanel.classList.contains('visible')) return;
+        if (this.settingsPanel.contains(e.target) || this.toggleBtn.contains(e.target)) return;
+        this._closePanel();
+      });
     }
 
     _togglePanel() {
@@ -162,13 +191,11 @@
 
     _openPanel() {
       this._renderPanelContent().then(() => {
-        this.backdrop.classList.add('visible');
         this.settingsPanel.classList.add('visible');
       });
     }
 
     _closePanel() {
-      this.backdrop.classList.remove('visible');
       this.settingsPanel.classList.remove('visible');
     }
 
@@ -364,7 +391,6 @@
     }
 
     mount(parent) {
-      document.body.appendChild(this.backdrop); // 遮罩层挂载到 body
       parent.appendChild(this.toggleBtn);
       parent.appendChild(this.settingsPanel);
     }
